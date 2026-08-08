@@ -9,8 +9,8 @@ project:
   device: "cuda"          # falls back to cpu automatically if cuda unavailable
 
 data:
-  raw_images_dir: "data/raw/ODIR-5K_Training_Images"
-  raw_annotations_csv: "data/raw/ODIR-5K_Training_Annotations.csv"
+  raw_images_dir: "/kaggle/working/all_images"
+  raw_annotations_csv: "/kaggle/input/datasets/andrewmvd/ocular-disease-recognition-odir5k/full_df.csv"
   processed_dir: "data/processed"
   clahe_cache_dir: "data/clahe_cache"
   use_clahe_cache: true          # precompute CLAHE once, reuse across epochs
