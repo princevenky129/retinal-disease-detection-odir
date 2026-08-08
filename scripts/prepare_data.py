@@ -56,6 +56,21 @@ def main(config_path: str):
         df = raw_annotations.rename(
             columns={"Left-Fundus": "left_filename", "Right-Fundus": "right_filename"}
         )
+    # Drop rows whose image file doesn't actually exist on disk (e.g. this
+    # dataset's CSV references some images not present in the attached folder).
+    before = len(df)
+    if cfg["data"]["pairing_mode"] == "individual":
+        df = df[df["filename"].apply(
+            lambda f: os.path.exists(os.path.join(cfg["data"]["raw_images_dir"], f))
+        )].reset_index(drop=True)
+    else:
+        df = df[df.apply(
+            lambda row: os.path.exists(os.path.join(cfg["data"]["raw_images_dir"], row["left_filename"]))
+            and os.path.exists(os.path.join(cfg["data"]["raw_images_dir"], row["right_filename"])),
+            axis=1,
+        )].reset_index(drop=True)
+    after = len(df)
+    print(f"Filtered missing-image rows: {before} -> {after} ({before - after} dropped)")
 
     train_df, val_df, test_df = stratified_split(
         df,
