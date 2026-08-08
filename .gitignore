@@ -1,0 +1,28 @@
+# Data (too large for git; download separately per README)
+data/raw/
+data/clahe_cache/
+data/processed/*.csv
+
+# Checkpoints & logs
+checkpoints/*.pth
+logs/tensorboard/*
+outputs/predictions/*
+outputs/gradcam_visualizations/*
+!checkpoints/.gitkeep
+!logs/tensorboard/.gitkeep
+!outputs/predictions/.gitkeep
+!outputs/gradcam_visualizations/.gitkeep
+!data/clahe_cache/.gitkeep
+
+# Python
+__pycache__/
+*.pyc
+*.pyo
+.ipynb_checkpoints/
+*.egg-info/
+.venv/
+venv/
+
+# OS
+.DS_Store
+Thumbs.db

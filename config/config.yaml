@@ -1,0 +1,114 @@
+# =============================================================================
+# Multi-Retinal Disease Detection — Central Config
+# EfficientNet-B4 + CBAM + FPN + Swin-B on ODIR-5K
+# =============================================================================
+
+project:
+  name: "retinal-disease-detection-odir"
+  seed: 42
+  device: "cuda"          # falls back to cpu automatically if cuda unavailable
+
+data:
+  raw_images_dir: "data/raw/ODIR-5K_Training_Images"
+  raw_annotations_csv: "data/raw/ODIR-5K_Training_Annotations.csv"
+  processed_dir: "data/processed"
+  clahe_cache_dir: "data/clahe_cache"
+  use_clahe_cache: true          # precompute CLAHE once, reuse across epochs
+  image_size: 380                 # EfficientNet-B4's native training resolution
+  pairing_mode: "individual"      # "individual" (7000 single-eye images) or "paired" (3500 patients)
+  classes: ["N", "D", "G", "C", "A", "H", "M", "O"]
+  class_names:
+    N: "Normal"
+    D: "Diabetes"
+    G: "Glaucoma"
+    C: "Cataract"
+    A: "AMD"
+    H: "Hypertension"
+    M: "Myopia"
+    O: "Other"
+  split:
+    train_ratio: 0.70
+    val_ratio: 0.15
+    test_ratio: 0.15
+    stratify: true
+
+augmentation:
+  horizontal_flip_p: 0.5
+  vertical_flip_p: 0.5
+  rotation_degrees: 15
+  color_jitter:
+    brightness: 0.2
+    contrast: 0.2
+    saturation: 0.1
+    hue: 0.02
+  normalize_mean: [0.485, 0.456, 0.406]   # ImageNet stats (backbone is ImageNet-pretrained)
+  normalize_std: [0.229, 0.224, 0.225]
+
+sampler:
+  use_weighted_sampler: true
+  weighting_strategy: "inverse_frequency"   # weight_c = 1 / count_c
+
+model:
+  backbone:
+    name: "efficientnet_b4"
+    pretrained: true
+    out_stage_channels: [56, 160, 448]   # feature channels pulled from intermediate stages (timm feature_info)
+  cbam:
+    reduction_ratio: 16
+    spatial_kernel_size: 7
+  fpn:
+    out_channels: 256
+    num_levels: 4                        # 1/4, 1/8, 1/16, 1/32
+  swin:
+    name: "swin_base_patch4_window7_224"
+    pretrained: true
+    window_size: 7
+    shift_size: 3
+    input_resolution: 224                # bridge resizes/projects FPN output to this before Swin
+  head:
+    dropout: 0.3
+    hidden_dim: 256
+    num_classes: 8
+
+loss:
+  type: "asymmetric_loss"
+  gamma_neg: 4        # down-weights easy negatives
+  gamma_pos: 1         # keeps gradient on positives (esp. Hypertension) strong
+  clip: 0.05            # probability margin/shift for negatives
+  eps: 1e-8
+
+optimizer:
+  type: "adamw"
+  lr: 1e-4
+  weight_decay: 1e-2
+  betas: [0.9, 0.999]
+
+scheduler:
+  type: "cosine_annealing_warm_restarts"
+  T_0: 10        # epochs until first restart
+  T_mult: 2      # restart period multiplier
+  eta_min: 1e-6
+
+training:
+  epochs: 60
+  batch_size: 16          # reduce if you hit OOM on Kaggle's T4 (try 8)
+  num_workers: 4
+  amp: true                # automatic mixed precision
+  grad_clip_norm: 1.0
+  early_stopping:
+    metric: "val_macro_f1"
+    patience: 10
+    mode: "max"
+  checkpoint:
+    monitor: "val_macro_f1"
+    mode: "max"
+    save_path: "checkpoints/best_model.pth"
+  log_dir: "logs/tensorboard"
+
+evaluation:
+  threshold: 0.5              # sigmoid threshold for converting probs -> binary predictions
+  report_without_other: true   # also report metrics excluding the heterogeneous "Other" class
+
+inference:
+  checkpoint_path: "checkpoints/best_model.pth"
+  threshold: 0.5
