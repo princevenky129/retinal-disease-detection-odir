@@ -9,7 +9,8 @@ Expects:
     data/raw/ODIR-5K_Training_Images/           (raw images)
     data/raw/ODIR-5K_Training_Annotations.csv   (raw patient-level annotations)
 """
-
+import sys, os
+sys.path.insert(0, os.path.abspath(os.path.join(os.path.dirname(__file__), "..")))
 import argparse
 import os
 import yaml

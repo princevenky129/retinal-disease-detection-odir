@@ -7,7 +7,8 @@ Usage:
 Prerequisite: run scripts/prepare_data.py first to generate
 data/processed/{train,val,test}.csv and the CLAHE cache.
 """
-
+import sys, os
+sys.path.insert(0, os.path.abspath(os.path.join(os.path.dirname(__file__), "..")))
 import argparse
 import yaml
 import torch
