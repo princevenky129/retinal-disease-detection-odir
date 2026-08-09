@@ -47,7 +47,10 @@ def main(config_path: str):
         cfg = yaml.safe_load(f)
 
     raw_annotations = pd.read_csv(cfg["data"]["raw_annotations_csv"])
-    print(f"Loaded raw annotations: {len(raw_annotations)} patients, "
+    before_dedup = len(raw_annotations)
+    raw_annotations = raw_annotations.drop_duplicates(subset=["ID"]).reset_index(drop=True)
+    print(f"Loaded raw annotations: {before_dedup} rows -> "
+          f"{len(raw_annotations)} unique patients after de-duplication, "
           f"columns: {raw_annotations.columns.tolist()}")
 
     if cfg["data"]["pairing_mode"] == "individual":
