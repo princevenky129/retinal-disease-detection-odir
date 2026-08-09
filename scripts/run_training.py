@@ -20,6 +20,7 @@ from src.losses.asymmetric_loss import AsymmetricLoss
 from src.training.optimizer import build_optimizer
 from src.training.scheduler import build_scheduler
 from src.training.train import train_model
+from src.data.sampler import build_weighted_sampler
 
 
 def set_seed(seed: int):
@@ -78,7 +79,8 @@ def main(config_path: str):
         eps=float(cfg["loss"]["eps"]),
     )
 
-    train_model(model, train_dataset, val_dataset, optimizer, scheduler, criterion, cfg)
+    train_sampler = build_weighted_sampler(train_dataset.df)
+    train_model(model, train_dataset, val_dataset, optimizer, scheduler, criterion, cfg, train_sampler=train_sampler)
 
 
 if __name__ == "__main__":

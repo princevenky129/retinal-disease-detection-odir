@@ -70,24 +70,22 @@ def evaluate_one_epoch(model, loader, criterion, device, threshold=0.5):
     return avg_loss, metrics
 
 
-def train_model(model, train_dataset, val_dataset, optimizer, scheduler, criterion, cfg):
+def train_model(model, train_dataset, val_dataset, optimizer, scheduler, criterion, cfg, train_sampler=None):
     device = torch.device(cfg["project"]["device"] if torch.cuda.is_available() else "cpu")
     model.to(device)
 
     t_cfg = cfg["training"]
     train_loader = DataLoader(
-        train_dataset, batch_size=t_cfg["batch_size"], shuffle=True,
+        train_dataset, batch_size=t_cfg["batch_size"],
+        sampler=train_sampler, shuffle=(train_sampler is None),
         num_workers=t_cfg["num_workers"], pin_memory=True,
     )
-    # NOTE: pass a WeightedRandomSampler (src/data/sampler.py) via `sampler=`
-    # instead of shuffle=True once the sampler has been built and verified --
-    # shuffle and sampler are mutually exclusive in DataLoader.
     val_loader = DataLoader(
         val_dataset, batch_size=t_cfg["batch_size"], shuffle=False,
         num_workers=t_cfg["num_workers"], pin_memory=True,
     )
 
-    scaler = torch.cuda.amp.GradScaler() if (t_cfg["amp"] and device.type == "cuda") else None
+    scaler = torch.amp.GradScaler("cuda") if (t_cfg["amp"] and device.type == "cuda") else None
     writer = SummaryWriter(log_dir=t_cfg["log_dir"])
 
     best_metric = -float("inf")
