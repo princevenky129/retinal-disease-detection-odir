@@ -1,45 +1,69 @@
 """
-GradCAM visualization on the EfficientNet backbone.
+Manual GradCAM implementation (no external pytorch_grad_cam dependency).
 
-Shows WHICH regions of the fundus image most influenced a given class
-prediction, by weighting the backbone's final feature map channels by the
-gradient of the target class's logit with respect to those channels.
+We implement GradCAM by hand because the pytorch_grad_cam library's
+automatic target/backward handling does not reliably collapse to a scalar
+for this model's multi-stage architecture (backbone -> CBAM -> FPN ->
+bridge -> Swin -> head), causing "grad can be implicitly created only for
+scalar outputs". Selecting the class logit explicitly and calling
+.backward() on it ourselves sidesteps that entirely.
 
-We hook the LAST EfficientNet stage (deepest, most semantic features) that
-feeds into CBAM/FPN, since that's where "what pattern triggered this
-prediction" is most interpretable. Uses the `grad-cam` pip package
-(pip install grad-cam) which supports arbitrary nn.Module targets.
+Core GradCAM algorithm (Selvaraju et al., 2017):
+1. Forward hook on the target conv layer captures its activations.
+2. Backward hook on the same layer captures the gradient of the selected
+   class logit with respect to those activations.
+3. Global-average-pool the gradients per channel -> per-channel weight.
+4. Weighted sum of activation channels, then ReLU (keep only features that
+   positively support the class).
+5. Upsample to image size, overlay as a heatmap.
 """
 
+import cv2
 import numpy as np
 import torch
-from pytorch_grad_cam import GradCAM
-from pytorch_grad_cam.utils.model_targets import ClassifierOutputTarget
-from pytorch_grad_cam.utils.image import show_cam_on_image
+import torch.nn.functional as F
 
 
 class RetinalGradCAM:
     def __init__(self, model, target_layer):
-        """
-        Args:
-            model: the full HybridRetinalModel (in eval mode).
-            target_layer: the nn.Module to hook -- e.g.
-                model.backbone.backbone.blocks[-1] (last EfficientNet block).
-        """
         self.model = model
-        self.cam = GradCAM(model=model, target_layers=[target_layer])
+        self.target_layer = target_layer
+        self.activations = None
+        self.gradients = None
+
+        self.target_layer.register_forward_hook(self._save_activation)
+        self.target_layer.register_full_backward_hook(self._save_gradient)
+
+    def _save_activation(self, module, input, output):
+        self.activations = output.detach()
+
+    def _save_gradient(self, module, grad_input, grad_output):
+        self.gradients = grad_output[0].detach()
 
     def generate(self, input_tensor: torch.Tensor, class_idx: int, rgb_image: np.ndarray):
-        """
-        Args:
-            input_tensor: (1, 3, H, W) preprocessed image tensor.
-            class_idx: which of the 8 classes to explain (0=N ... 7=O).
-            rgb_image: (H, W, 3) float array in [0, 1], the same image
-                (unnormalized) for overlay visualization.
-        Returns:
-            (H, W, 3) uint8 image with the GradCAM heatmap overlaid.
-        """
-        targets = [ClassifierOutputTarget(class_idx)]
-        grayscale_cam = self.cam(input_tensor=input_tensor, targets=targets)[0]
-        visualization = show_cam_on_image(rgb_image, grayscale_cam, use_rgb=True)
-        return visualization
+        self.model.zero_grad()
+        logits = self.model(input_tensor)        # (1, num_classes)
+        target_score = logits[0, class_idx]        # scalar - this is the key fix
+
+        target_score.backward()
+
+        activations = self.activations[0]           # (C, h, w)
+        gradients = self.gradients[0]                 # (C, h, w)
+
+        weights = gradients.mean(dim=(1, 2))            # (C,)
+        cam = torch.zeros(activations.shape[1:], dtype=torch.float32, device=activations.device)
+        for i, w in enumerate(weights):
+            cam += w * activations[i]
+
+        cam = F.relu(cam)
+        cam = cam.cpu().numpy()
+        cam = cv2.resize(cam, (rgb_image.shape[1], rgb_image.shape[0]))
+        cam = cam - cam.min()
+        cam = cam / (cam.max() + 1e-8)
+
+        heatmap = cv2.applyColorMap(np.uint8(255 * cam), cv2.COLORMAP_JET)
+        heatmap = cv2.cvtColor(heatmap, cv2.COLOR_BGR2RGB).astype(np.float32) / 255.0
+
+        overlay = 0.5 * rgb_image + 0.5 * heatmap
+        overlay = np.uint8(255 * overlay / overlay.max())
+        return overlay
