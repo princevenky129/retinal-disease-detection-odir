@@ -38,7 +38,11 @@ def run_evaluation(model, test_dataset, cfg, device=None):
     all_labels = np.concatenate(all_labels, axis=0)
     all_probs = np.concatenate(all_probs, axis=0)
 
-    threshold = cfg["evaluation"]["threshold"]
+    per_class_thresholds = cfg["evaluation"].get("per_class_thresholds")
+    if per_class_thresholds:
+        threshold = np.array([per_class_thresholds[c] for c in CLASSES])
+    else:
+        threshold = cfg["evaluation"]["threshold"]
     results = compute_metrics(all_labels, all_probs, threshold=threshold)
 
     print("\n=== Full Test Set Results (all 8 classes) ===")
