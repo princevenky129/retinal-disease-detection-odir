@@ -58,6 +58,18 @@ class RetinalGradCAM:
         cam = F.relu(cam)
         cam = cam.cpu().numpy()
         cam = cv2.resize(cam, (rgb_image.shape[1], rgb_image.shape[0]))
+
+        # Suppress border artifacts: fundus images are circular crops inside
+        # a square frame, and the padding/edges outside the circle can
+        # produce spurious high-gradient activations unrelated to any real
+        # clinical feature. Zeroing a thin margin keeps the heatmap focused
+        # on the actual fundus content.
+        h, w = cam.shape
+        margin_h, margin_w = int(h * 0.05), int(w * 0.05)
+        border_mask = np.zeros_like(cam)
+        border_mask[margin_h:h - margin_h, margin_w:w - margin_w] = 1.0
+        cam = cam * border_mask
+
         cam = cam - cam.min()
         cam = cam / (cam.max() + 1e-8)
 
