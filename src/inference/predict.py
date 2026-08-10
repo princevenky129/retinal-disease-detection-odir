@@ -38,7 +38,8 @@ def predict_single_image(model, cfg, device, image_path: str) -> dict:
     image_size = cfg["data"]["image_size"]
     mean = cfg["augmentation"]["normalize_mean"]
     std = cfg["augmentation"]["normalize_std"]
-    threshold = cfg["inference"]["threshold"]
+    per_class_thresholds = cfg["inference"].get("per_class_thresholds")
+    flat_threshold = cfg["inference"]["threshold"]
 
     raw_image = load_and_preprocess(image_path, target_size=image_size)
     transform = get_eval_transforms(image_size, mean, std)
@@ -47,13 +48,13 @@ def predict_single_image(model, cfg, device, image_path: str) -> dict:
     logits = model(tensor)
     probs = torch.sigmoid(logits).cpu().numpy()[0]
 
-    predictions = {
-        CLASS_NAMES[c]: {
+    predictions = {}
+    for c, p in zip(CLASSES, probs):
+        threshold = per_class_thresholds[c] if per_class_thresholds else flat_threshold
+        predictions[CLASS_NAMES[c]] = {
             "probability": float(p),
             "positive": bool(p >= threshold),
         }
-        for c, p in zip(CLASSES, probs)
-    }
     return predictions
 
 
