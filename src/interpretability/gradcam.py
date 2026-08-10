@@ -14,7 +14,7 @@ prediction" is most interpretable. Uses the `grad-cam` pip package
 import numpy as np
 import torch
 from pytorch_grad_cam import GradCAM
-from pytorch_grad_cam.utils.model_targets import BinaryClassifierOutputTarget
+from pytorch_grad_cam.utils.model_targets import ClassifierOutputTarget
 from pytorch_grad_cam.utils.image import show_cam_on_image
 
 
@@ -39,7 +39,7 @@ class RetinalGradCAM:
         Returns:
             (H, W, 3) uint8 image with the GradCAM heatmap overlaid.
         """
-        targets = [BinaryClassifierOutputTarget(class_idx)]
+        targets = [ClassifierOutputTarget(class_idx)]
         grayscale_cam = self.cam(input_tensor=input_tensor, targets=targets)[0]
         visualization = show_cam_on_image(rgb_image, grayscale_cam, use_rgb=True)
         return visualization
