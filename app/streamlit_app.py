@@ -40,9 +40,9 @@ if left_file and right_file:
 
     col1, col2 = st.columns(2)
     with col1:
-        st.image(left_img, caption="Left eye", use_column_width=True)
+        st.image(left_img, caption="Left eye", use_container_width=True)
     with col2:
-        st.image(right_img, caption="Right eye", use_column_width=True)
+        st.image(right_img, caption="Right eye", use_container_width=True)
 
     # Save temp files for the predict function (which reads from disk)
     left_path = "/tmp/left_eye.jpg"
@@ -88,7 +88,7 @@ if left_file and right_file:
             class_idx = CLASSES.index(code_lookup[top_class])
 
             vis = grad_cam.generate(tensor, class_idx, rgb_float)
-            st.image(vis, caption=f"GradCAM overlay: {top_class}", use_column_width=True)
+            st.image(vis, caption=f"GradCAM overlay: {top_class}", width=400)
 
         st.info(
             "This is a college project demo, NOT a certified diagnostic tool. "
