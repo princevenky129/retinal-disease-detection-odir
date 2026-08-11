@@ -73,19 +73,40 @@ class HybridRetinalModel(nn.Module):
             dropout=m["head"]["dropout"],
         )
 
+    def _extract_embedding(self, x: torch.Tensor) -> torch.Tensor:
+        """Runs a (B, 3, H, W) image batch through backbone->CBAM->FPN->bridge->Swin."""
+        stage_feats = self.backbone(x)
+        refined_feats = [cbam(f) for cbam, f in zip(self.cbam_blocks, stage_feats)]
+        fpn_feats = self.fpn(refined_feats)
+        bridged = self.bridge(fpn_feats)
+        embedding = self.swin(bridged)
+        return embedding
+
     def forward(self, x: torch.Tensor) -> torch.Tensor:
         """
         Args:
-            x: (B, 3, H, W) preprocessed fundus image batch.
+            x: EITHER
+               - (B, 3, H, W) single-eye image batch, OR
+               - (B, 2, 3, H, W) paired left+right eye batch (matches ODIR-5K's
+                 actual per-patient labeling: a label applies to the PATIENT,
+                 assessed from both eyes together, not to one eye in isolation).
         Returns:
             (B, num_classes) raw logits.
         """
-        stage_feats = self.backbone(x)                                  # list of 3 feature maps
-        refined_feats = [cbam(f) for cbam, f in zip(self.cbam_blocks, stage_feats)]
-        fpn_feats = self.fpn(refined_feats)                              # list of 4 feature maps
-        bridged = self.bridge(fpn_feats)                                 # (B, 3, 224, 224)
-        embedding = self.swin(bridged)                                   # (B, 1024)
-        logits = self.head(embedding)                                    # (B, 8)
+        if x.dim() == 5:
+            # Paired mode: fold the eye dimension into the batch dimension,
+            # run both eyes through the same shared-weight pipeline, then
+            # average their embeddings BEFORE classification -- this lets
+            # the model combine evidence from both eyes into one patient-level
+            # decision, matching how ODIR-5K's ground-truth labels were made.
+            B, E, C, H, W = x.shape
+            x = x.view(B * E, C, H, W)
+            embedding = self._extract_embedding(x)          # (B*E, 1024)
+            embedding = embedding.view(B, E, -1).mean(dim=1)  # (B, 1024)
+        else:
+            embedding = self._extract_embedding(x)            # (B, 1024)
+
+        logits = self.head(embedding)
         return logits
 
 

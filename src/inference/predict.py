@@ -61,17 +61,33 @@ def predict_single_image(model, cfg, device, image_path: str) -> dict:
 @torch.no_grad()
 def predict_paired_images(model, cfg, device, left_image_path: str, right_image_path: str) -> dict:
     """
-    Run inference on a left+right eye pair and average the resulting
-    probabilities. Simple fusion strategy for a first working version --
-    swap for feeding both through the "paired" dataset pipeline mode
-    (src/data/dataset.py) if a fusion-aware model variant is later trained.
+    Run inference on a left+right eye pair using the model's native paired
+    fusion (both eyes -> shared backbone -> averaged embedding -> ONE
+    patient-level prediction), matching how the model was trained and how
+    ODIR-5K's ground-truth labels were actually assigned.
     """
-    left_pred = predict_single_image(model, cfg, device, left_image_path)
-    right_pred = predict_single_image(model, cfg, device, right_image_path)
+    image_size = cfg["data"]["image_size"]
+    mean = cfg["augmentation"]["normalize_mean"]
+    std = cfg["augmentation"]["normalize_std"]
+    per_class_thresholds = cfg["inference"].get("per_class_thresholds")
+    flat_threshold = cfg["inference"]["threshold"]
 
-    threshold = cfg["inference"]["threshold"]
-    fused = {}
-    for c in CLASS_NAMES.values():
-        avg_prob = (left_pred[c]["probability"] + right_pred[c]["probability"]) / 2
-        fused[c] = {"probability": avg_prob, "positive": avg_prob >= threshold}
-    return fused
+    left_raw = load_and_preprocess(left_image_path, target_size=image_size)
+    right_raw = load_and_preprocess(right_image_path, target_size=image_size)
+    transform = get_eval_transforms(image_size, mean, std)
+
+    left_t = transform(image=left_raw)["image"]
+    right_t = transform(image=right_raw)["image"]
+    paired_tensor = torch.stack([left_t, right_t], dim=0).unsqueeze(0).to(device)  # (1, 2, 3, H, W)
+
+    logits = model(paired_tensor)
+    probs = torch.sigmoid(logits).cpu().numpy()[0]
+
+    predictions = {}
+    for c, p in zip(CLASSES, probs):
+        threshold = per_class_thresholds[c] if per_class_thresholds else flat_threshold
+        predictions[CLASS_NAMES[c]] = {
+            "probability": float(p),
+            "positive": bool(p >= threshold),
+        }
+    return predictions

@@ -15,7 +15,7 @@ data:
   clahe_cache_dir: "data/clahe_cache"
   use_clahe_cache: true          # precompute CLAHE once, reuse across epochs
   image_size: 380                 # EfficientNet-B4's native training resolution
-  pairing_mode: "individual"      # "individual" (7000 single-eye images) or "paired" (3500 patients)
+  pairing_mode: "paired"          # "individual" (7000 single-eye images) or "paired" (3500 patients)
   classes: ["N", "D", "G", "C", "A", "H", "M", "O"]
   class_names:
     N: "Normal"
