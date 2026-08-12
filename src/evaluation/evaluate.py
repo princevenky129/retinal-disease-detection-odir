@@ -56,8 +56,9 @@ def run_evaluation(model, test_dataset, cfg, device=None):
     if cfg["evaluation"].get("report_without_other", True):
         classes_no_other = [c for c in CLASSES if c != "O"]
         idx = [CLASSES.index(c) for c in classes_no_other]
+        threshold_no_other = threshold[idx] if isinstance(threshold, np.ndarray) else threshold
         results_no_other = compute_metrics(
-            all_labels[:, idx], all_probs[:, idx], threshold=threshold, classes=classes_no_other
+            all_labels[:, idx], all_probs[:, idx], threshold=threshold_no_other, classes=classes_no_other
         )
         print("\n=== Results Excluding 'Other' Class ===")
         print_metrics_report(results_no_other)
