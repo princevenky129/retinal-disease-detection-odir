@@ -72,7 +72,7 @@ model:
 
 loss:
   type: "asymmetric_loss"
-  gamma_neg: 4        # down-weights easy negatives
+  gamma_neg: 5        # down-weights easy negatives (bumped from 4 -> 5)
   gamma_pos: 1         # keeps gradient on positives (esp. Hypertension) strong
   clip: 0.05            # probability margin/shift for negatives
   eps: 1e-8
@@ -91,6 +91,7 @@ scheduler:
 
 training:
   epochs: 60
+  warmup_epochs: 5          # freeze pretrained EfficientNet+Swin for this many epochs first
   batch_size: 16          # reduce if you hit OOM on Kaggle's T4 (try 8)
   num_workers: 4
   amp: true                # automatic mixed precision

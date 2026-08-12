@@ -18,6 +18,26 @@ from tqdm import tqdm
 from src.training.metrics import compute_metrics
 
 
+def freeze_pretrained_backbones(model):
+    """
+    Freeze EfficientNet-B4 and Swin-B (the pretrained components), leaving
+    only the newly-initialized CBAM, FPN, bridge, and head layers trainable.
+    Used for the first few "warmup" epochs, so large early gradients from
+    the random new layers don't disturb the pretrained weights before those
+    new layers have learned anything useful.
+    """
+    for param in model.backbone.parameters():
+        param.requires_grad = False
+    for param in model.swin.parameters():
+        param.requires_grad = False
+
+
+def unfreeze_all(model):
+    """Unfreeze every parameter -- used after the warmup phase."""
+    for param in model.parameters():
+        param.requires_grad = True
+
+
 def train_one_epoch(model, loader, optimizer, criterion, device, scaler, grad_clip_norm=1.0):
     model.train()
     running_loss = 0.0
@@ -74,6 +94,10 @@ def train_model(model, train_dataset, val_dataset, optimizer, scheduler, criteri
     device = torch.device(cfg["project"]["device"] if torch.cuda.is_available() else "cpu")
     model.to(device)
 
+    warmup_epochs = cfg["training"].get("warmup_epochs", 5)
+    freeze_pretrained_backbones(model)
+    print(f"Backbones frozen for the first {warmup_epochs} warmup epochs.")
+
     t_cfg = cfg["training"]
     train_loader = DataLoader(
         train_dataset, batch_size=t_cfg["batch_size"],
@@ -94,6 +118,10 @@ def train_model(model, train_dataset, val_dataset, optimizer, scheduler, criteri
     monitor = t_cfg["checkpoint"]["monitor"]
 
     for epoch in range(1, t_cfg["epochs"] + 1):
+        if epoch == warmup_epochs + 1:
+            unfreeze_all(model)
+            print(f"Epoch {epoch}: backbones unfrozen, training all layers.")
+
         train_loss = train_one_epoch(
             model, train_loader, optimizer, criterion, device, scaler,
             grad_clip_norm=t_cfg["grad_clip_norm"],
