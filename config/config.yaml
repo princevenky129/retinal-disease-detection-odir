@@ -90,7 +90,7 @@ scheduler:
   eta_min: 1e-6
 
 training:
-  epochs: 60
+  epochs: 100
   warmup_epochs: 5          # freeze pretrained EfficientNet+Swin for this many epochs first
   batch_size: 16          # reduce if you hit OOM on Kaggle's T4 (try 8)
   num_workers: 4
@@ -98,7 +98,7 @@ training:
   grad_clip_norm: 1.0
   early_stopping:
     metric: "val_macro_f1"
-    patience: 10
+    patience: 15
     mode: "max"
   checkpoint:
     monitor: "val_macro_f1"
