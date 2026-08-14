@@ -108,26 +108,26 @@ training:
 
 evaluation:
   threshold: 0.5              # fallback flat threshold, kept for reference
-  per_class_thresholds:        # tuned on validation set (see notebooks/02_sampler_verification.ipynb history)
-    N: 0.45
-    D: 0.55
-    G: 0.75
-    C: 0.75
-    A: 0.75
-    H: 0.70
-    M: 0.65
-    O: 0.55
+  per_class_thresholds:        # tuned on validation set against epoch-59 checkpoint (val_macro_f1=0.5681)
+    N: 0.55
+    D: 0.65
+    G: 0.50
+    C: 0.80
+    A: 0.70
+    H: 0.40
+    M: 0.70
+    O: 0.65
   report_without_other: true   # also report metrics excluding the heterogeneous "Other" class
 
 inference:
   checkpoint_path: "checkpoints/best_model.pth"
   threshold: 0.5               # fallback flat threshold
   per_class_thresholds:
-    N: 0.45
-    D: 0.55
-    G: 0.75
-    C: 0.75
-    A: 0.75
-    H: 0.70
-    M: 0.65
-    O: 0.55
+    N: 0.55
+    D: 0.65
+    G: 0.50
+    C: 0.80
+    A: 0.70
+    H: 0.40
+    M: 0.70
+    O: 0.65
