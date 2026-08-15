@@ -1,8 +1,6 @@
 """
 HRTNet — Multi-Retinal Disease Detection
-Multi-page Streamlit dashboard: sidebar navigation, upload + analysis,
-session-based analysis history, model performance, research summary, and
-an about page.
+Streamlit dashboard with collapsible sidebar navigation.
 
 Usage:
     streamlit run app/streamlit_app.py
@@ -53,149 +51,213 @@ PER_CLASS_METRICS = {
     "O": {"precision": 0.3518, "recall": 0.6089, "f1": 0.4459},
 }
 
-ACCENT = "#1AA6A0"
+NAV_PAGES = [
+    ("🏠", "Dashboard"),
+    ("🕐", "Analysis History"),
+    ("📊", "Model Performance"),
+    ("🔬", "Research & Experiments"),
+    ("ℹ️", "About HRTNet"),
+]
+
+ACCENT      = "#1AA6A0"
 ACCENT_DARK = "#0E6E6A"
-ACCENT_LIGHT = "#5ED8D2"
-WARN = "#D97706"
+ACCENT_LIGHT= "#5ED8D2"
+WARN        = "#D97706"
 
 # ---------------------------------------------------------------------------
-# Global styling
+# Session state defaults
+# ---------------------------------------------------------------------------
+if "history" not in st.session_state:
+    st.session_state.history = []
+if "active_page" not in st.session_state:
+    st.session_state.active_page = "Dashboard"
+
+# ---------------------------------------------------------------------------
+# Global CSS
 # ---------------------------------------------------------------------------
 st.markdown("""
 <style>
+/* ── Fonts ── */
 @import url('https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&family=IBM+Plex+Mono:wght@500;600&display=swap');
 
-html, body, .stApp { background: #EEF2F7; font-family: 'Inter', sans-serif; color: #16232B; }
-#MainMenu, footer { visibility: hidden; height: 0; }
-header[data-testid="stHeader"] { background: transparent; height: 3rem; }
-.block-container { padding-top: 1.4rem; padding-bottom: 3rem; max-width: none; }
-
-/* Keep the sidebar re-expand control visible and usable at all times */
-[data-testid="collapsedControl"] {
-    visibility: visible !important;
-    display: flex !important;
-    color: #0E6E6A !important;
-}
-[data-testid="collapsedControl"] svg {
-    fill: #0E6E6A !important;
+/* ── Reset & base ── */
+html, body, .stApp {
+    background: #EEF2F7;
+    font-family: 'Inter', sans-serif;
+    color: #16232B;
 }
 
-/* Sidebar */
+/* ── Hide ALL Streamlit chrome: header, toolbar, decoration, status, footer, menu ── */
+header[data-testid="stHeader"]   { display: none !important; }
+[data-testid="stToolbar"]        { display: none !important; }
+[data-testid="stDecoration"]     { display: none !important; }
+[data-testid="stStatusWidget"]   { display: none !important; }
+footer                           { display: none !important; }
+#MainMenu                        { display: none !important; }
+
+/* ── Main content area ── */
+.block-container {
+    padding-top: 1.6rem;
+    padding-bottom: 3rem;
+    padding-left: 2rem;
+    padding-right: 2rem;
+    max-width: none;
+}
+
+/* ── Sidebar shell ── */
 section[data-testid="stSidebar"] {
-    background: linear-gradient(180deg, #101B2D 0%, #0B141F 100%);
+    background: linear-gradient(180deg, #0B1929 0%, #0F2236 60%, #0B1929 100%) !important;
+    border-right: 1px solid #1E3148 !important;
+    min-width: 260px !important;
+    max-width: 260px !important;
 }
-section[data-testid="stSidebar"] * { color: #C9D6E3 !important; }
-section[data-testid="stSidebar"] .sidebar-brand {
-    font-size: 1.15rem; font-weight: 800; color: #FFFFFF !important;
-    padding: 0.4rem 0 1.1rem 0; border-bottom: 1px solid #22314A; margin-bottom: 1rem;
+section[data-testid="stSidebar"] > div:first-child {
+    padding: 0 !important;
 }
-section[data-testid="stSidebar"] .sidebar-brand span { color: #5ED8D2 !important; }
-div[role="radiogroup"] label {
-    background: transparent; border-radius: 8px; padding: 0.55rem 0.7rem !important;
-    margin-bottom: 0.15rem; transition: background 0.15s;
-}
-div[role="radiogroup"] label:hover { background: #1B2B42; }
 
-/* Hero banner */
+/* ── Sidebar collapse toggle (arrow button Streamlit renders natively) ── */
+[data-testid="collapsedControl"] {
+    background: #0E6E6A !important;
+    border-radius: 0 8px 8px 0 !important;
+    color: #FFFFFF !important;
+    width: 26px !important;
+    top: 1.2rem !important;
+}
+[data-testid="collapsedControl"] svg { color: #FFFFFF !important; fill: #FFFFFF !important; }
+
+/* ── Sidebar nav buttons ── */
+section[data-testid="stSidebar"] button,
+section[data-testid="stSidebar"] .stButton > button {
+    background: transparent !important;
+    border: none !important;
+    border-radius: 10px !important;
+    color: #C9D6E3 !important;
+    font-family: 'Inter', sans-serif !important;
+    font-size: 0.92rem !important;
+    font-weight: 500 !important;
+    padding: 0.62rem 1rem !important;
+    text-align: left !important;
+    width: 100% !important;
+    transition: background 0.18s ease, color 0.18s ease !important;
+    margin-bottom: 0.1rem !important;
+    box-shadow: none !important;
+}
+section[data-testid="stSidebar"] button:hover,
+section[data-testid="stSidebar"] .stButton > button:hover {
+    background: rgba(26,166,160,0.15) !important;
+    color: #5ED8D2 !important;
+}
+
+/* ── Hero banner ── */
 .hero {
     background: linear-gradient(120deg, #0E6E6A 0%, #1AA6A0 55%, #2E86D9 100%);
     border-radius: 16px;
     padding: 1.9rem 2.2rem;
     color: #FFFFFF;
     margin-bottom: 1.4rem;
-    box-shadow: 0 6px 20px rgba(14,110,106,0.22);
+    box-shadow: 0 6px 24px rgba(14,110,106,0.28);
 }
 .hero-title { font-size: 1.9rem; font-weight: 800; margin: 0; letter-spacing: -0.01em; }
-.hero-sub { font-size: 1rem; opacity: 0.92; margin-top: 0.3rem; }
+.hero-sub   { font-size: 1rem; opacity: 0.92; margin-top: 0.3rem; }
 .hero-badge {
-    display: inline-block; background: rgba(255,255,255,0.18); border: 1px solid rgba(255,255,255,0.4);
-    font-size: 0.72rem; font-weight: 700; letter-spacing: 0.05em; text-transform: uppercase;
-    padding: 0.3rem 0.8rem; border-radius: 20px; margin-top: 0.7rem;
+    display: inline-block;
+    background: rgba(255,255,255,0.18);
+    border: 1px solid rgba(255,255,255,0.38);
+    font-size: 0.72rem; font-weight: 700;
+    letter-spacing: 0.06em; text-transform: uppercase;
+    padding: 0.28rem 0.82rem; border-radius: 20px; margin-top: 0.7rem;
 }
 
-/* Cards / grid */
+/* ── Cards ── */
 .card {
-    background: #FFFFFF; border: 1px solid #DDE5EC; border-radius: 14px;
-    padding: 1.3rem 1.5rem; box-shadow: 0 1px 4px rgba(16,40,48,0.05);
+    background: #FFFFFF;
+    border: 1px solid #DDE5EC;
+    border-radius: 14px;
+    padding: 1.3rem 1.5rem;
+    box-shadow: 0 1px 6px rgba(16,40,48,0.06);
     height: 100%;
 }
-.card-title { font-size: 1.0rem; font-weight: 700; margin-bottom: 0.2rem; }
-.card-sub { font-size: 0.85rem; color: #64748B; margin-bottom: 0.9rem; }
+.card-title { font-size: 1.0rem; font-weight: 700; margin-bottom: 0.2rem; color: #16232B; }
+.card-sub   { font-size: 0.85rem; color: #64748B; margin-bottom: 0.9rem; }
 
-.stat-card { text-align: left; }
-.stat-label { font-size: 0.76rem; color: #64748B; font-weight: 600; text-transform: uppercase; letter-spacing: 0.04em; }
-.stat-value { font-size: 1.7rem; font-weight: 800; color: #0E6E6A; font-family: 'IBM Plex Mono', monospace; margin-top: 0.15rem; }
+.stat-card  { text-align: left; }
+.stat-label { font-size: 0.75rem; color: #64748B; font-weight: 600; text-transform: uppercase; letter-spacing: 0.05em; }
+.stat-value { font-size: 1.75rem; font-weight: 800; color: #0E6E6A; font-family: 'IBM Plex Mono', monospace; margin-top: 0.15rem; }
 
+/* ── Section labels ── */
 .section-label {
-    font-size: 0.78rem; font-weight: 700; letter-spacing: 0.08em; text-transform: uppercase;
+    font-size: 0.76rem; font-weight: 700; letter-spacing: 0.09em; text-transform: uppercase;
     color: #0E6E6A; margin: 1.6rem 0 0.7rem 0;
 }
 
-.top-pred-name { font-size: 1.7rem; font-weight: 800; color: #16232B; margin: 0.1rem 0; }
-.top-pred-tag { font-size: 0.74rem; font-weight: 700; letter-spacing: 0.05em; text-transform: uppercase; color: #0E6E6A; }
+/* ── Prediction UI ── */
+.top-pred-name { font-size: 1.65rem; font-weight: 800; color: #16232B; margin: 0.1rem 0; }
+.top-pred-tag  { font-size: 0.72rem; font-weight: 700; letter-spacing: 0.06em; text-transform: uppercase; color: #0E6E6A; }
 
 .pred-row { margin-bottom: 0.8rem; }
-.pred-row-top { display: flex; justify-content: space-between; margin-bottom: 0.25rem; font-size: 0.92rem; }
-.pred-row-name { font-weight: 500; }
-.pred-row-flag { color: #D97706; font-size: 0.68rem; font-weight: 700; margin-left: 0.4rem; text-transform: uppercase; }
+.pred-row-top   { display: flex; justify-content: space-between; margin-bottom: 0.25rem; font-size: 0.92rem; }
+.pred-row-name  { font-weight: 500; }
+.pred-row-flag  { color: #D97706; font-size: 0.68rem; font-weight: 700; margin-left: 0.4rem; text-transform: uppercase; }
 .pred-row-value { font-family: 'IBM Plex Mono', monospace; color: #64748B; font-size: 0.86rem; }
-.pred-track { height: 8px; background: #EEF2F7; border-radius: 4px; overflow: hidden; }
-.pred-fill { height: 100%; border-radius: 4px; background: #1AA6A0; }
+.pred-track     { height: 8px; background: #EEF2F7; border-radius: 4px; overflow: hidden; }
+.pred-fill         { height: 100%; border-radius: 4px; background: #1AA6A0; }
 .pred-fill-flagged { background: #D97706; }
 
+/* ── Disclaimer ── */
 .disclaimer {
     background: #FFF7ED; border: 1px solid #FBD7A5; border-radius: 10px;
     padding: 0.9rem 1.2rem; font-size: 0.86rem; color: #92400E; margin-top: 1.4rem;
 }
 
+/* ── Image frame ── */
 .img-frame { border-radius: 12px; overflow: hidden; border: 1px solid #DDE5EC; background: #EEF2F7; }
 .img-frame img { width: 100%; display: block; }
 .img-caption { font-size: 0.8rem; color: #64748B; margin-top: 0.35rem; text-align: center; }
 
+/* ── History cards ── */
 .history-card {
     background: #FFFFFF; border: 1px solid #DDE5EC; border-radius: 12px;
-    padding: 0.9rem 1.1rem; margin-bottom: 0.7rem; display: flex; justify-content: space-between; align-items: center;
+    padding: 0.9rem 1.1rem; margin-bottom: 0.7rem;
+    display: flex; justify-content: space-between; align-items: center;
 }
 .history-time { font-size: 0.76rem; color: #94A3B8; font-family: 'IBM Plex Mono', monospace; }
-.history-top { font-weight: 700; font-size: 1rem; margin-top: 0.1rem; }
+.history-top  { font-weight: 700; font-size: 1rem; margin-top: 0.1rem; }
 .history-conf { font-family: 'IBM Plex Mono', monospace; color: #0E6E6A; font-weight: 600; }
 
-.stButton > button {
-    background: #1AA6A0 !important; color: #FFFFFF !important; border: none !important;
-    border-radius: 8px !important; font-weight: 700 !important; padding: 0.6rem 1.8rem !important;
-}
-.stButton > button:hover { background: #0E6E6A !important; }
-
-[data-testid="stFileUploaderDropzone"] { background: #F8FAFC !important; border: 1.5px dashed #CBD5E1 !important; border-radius: 10px !important; }
-
-/* File uploader label + helper text visibility */
-[data-testid="stFileUploader"] label p,
-[data-testid="stFileUploader"] label {
-    color: #16232B !important;
-    font-weight: 600 !important;
-    font-size: 0.92rem !important;
-}
-[data-testid="stFileUploaderDropzone"] div,
-[data-testid="stFileUploaderDropzone"] span,
-[data-testid="stFileUploaderDropzone"] small {
-    color: #475569 !important;
-}
-
-/* Browse-files button inside the dropzone */
-[data-testid="stFileUploaderDropzone"] button {
+/* ── Primary action button (Analyze) — scoped to main area only ── */
+div[data-testid="stMainBlockContainer"] .stButton > button {
     background: #1AA6A0 !important;
     color: #FFFFFF !important;
     border: none !important;
-    border-radius: 6px !important;
-    font-weight: 600 !important;
+    border-radius: 8px !important;
+    font-weight: 700 !important;
+    padding: 0.6rem 1.8rem !important;
+    transition: background 0.18s ease !important;
+    box-shadow: 0 2px 8px rgba(26,166,160,0.3) !important;
 }
-[data-testid="stFileUploaderDropzone"] button:hover {
+div[data-testid="stMainBlockContainer"] .stButton > button:hover {
     background: #0E6E6A !important;
-    color: #FFFFFF !important;
 }
-[data-testid="stFileUploaderDropzone"] button p {
-    color: #FFFFFF !important;
+
+/* ── File uploader ── */
+[data-testid="stFileUploaderDropzone"] {
+    background: #F8FAFC !important;
+    border: 1.5px dashed #CBD5E1 !important;
+    border-radius: 10px !important;
 }
+[data-testid="stFileUploader"] label p,
+[data-testid="stFileUploader"] label {
+    color: #16232B !important; font-weight: 600 !important; font-size: 0.92rem !important;
+}
+[data-testid="stFileUploaderDropzone"] div,
+[data-testid="stFileUploaderDropzone"] span,
+[data-testid="stFileUploaderDropzone"] small { color: #475569 !important; }
+[data-testid="stFileUploaderDropzone"] button {
+    background: #1AA6A0 !important; color: #FFFFFF !important;
+    border: none !important; border-radius: 6px !important; font-weight: 600 !important;
+}
+[data-testid="stFileUploaderDropzone"] button:hover { background: #0E6E6A !important; }
+[data-testid="stFileUploaderDropzone"] button p    { color: #FFFFFF !important; }
 
 hr { border-color: #DDE5EC !important; }
 </style>
@@ -213,9 +275,6 @@ try:
 except Exception:
     model, cfg, device = None, None, None
     model_load_error = "The model checkpoint could not be loaded. Please confirm `checkpoints/best_model.pth` exists."
-
-if "history" not in st.session_state:
-    st.session_state.history = []
 
 
 # ---------------------------------------------------------------------------
@@ -255,23 +314,83 @@ def full_name(code_or_display_name):
 
 
 # ---------------------------------------------------------------------------
-# Sidebar navigation
+# Sidebar — brand header + navigation
 # ---------------------------------------------------------------------------
 with st.sidebar:
-    st.markdown('<div class="sidebar-brand">HRT<span>Net</span></div>', unsafe_allow_html=True)
-    page = st.radio(
-        "Navigate",
-        ["Dashboard", "Analysis History", "Model Performance", "Research & Experiments", "About HRTNet"],
-        label_visibility="collapsed",
-    )
-    st.markdown("<hr style='border-color:#22314A;'>", unsafe_allow_html=True)
-    st.caption("Checkpoint: epoch 68")
-    st.caption("Val Macro-F1: 0.5691")
-    st.caption(f"Session analyses: {len(st.session_state.history)}")
+    # Brand header
+    st.markdown("""
+    <div style="
+        padding: 1.6rem 1.2rem 1.2rem 1.2rem;
+        border-bottom: 1px solid #1E3148;
+        margin-bottom: 0.6rem;
+    ">
+        <div style="
+            font-size: 1.2rem; font-weight: 800;
+            color: #FFFFFF; letter-spacing: -0.01em; line-height: 1.2;
+        ">HRT<span style="color:#5ED8D2;">Net</span></div>
+        <div style="
+            font-size: 0.75rem; color: #6B8BAF;
+            font-weight: 500; margin-top: 0.3rem; letter-spacing: 0.02em;
+        ">Retinal Disease Detection</div>
+        <div style="
+            display: inline-block; margin-top: 0.7rem;
+            background: rgba(26,166,160,0.18); border: 1px solid rgba(94,216,210,0.35);
+            font-size: 0.65rem; font-weight: 700; letter-spacing: 0.07em;
+            text-transform: uppercase; padding: 0.22rem 0.65rem;
+            border-radius: 20px; color: #5ED8D2;
+        ">AI Research Prototype</div>
+    </div>
+    """, unsafe_allow_html=True)
 
+    # Navigation label
+    st.markdown("""
+    <div style="
+        font-size: 0.65rem; font-weight: 700; letter-spacing: 0.10em;
+        text-transform: uppercase; color: #3D5A7A;
+        padding: 0 1.2rem; margin-bottom: 0.4rem;
+    ">Navigation</div>
+    """, unsafe_allow_html=True)
+
+    # Nav buttons
+    for icon, nav_page in NAV_PAGES:
+        is_active = st.session_state.active_page == nav_page
+        if is_active:
+            st.markdown(f"""
+            <style>
+            div[data-testid="stSidebar"] div[data-testid="stVerticalBlock"] button[kind="secondary"]:has(p:contains("{icon}")) {{
+                background: rgba(26,166,160,0.25) !important;
+                color: #5ED8D2 !important;
+                font-weight: 700 !important;
+            }}
+            </style>
+            """, unsafe_allow_html=True)
+        if st.button(f"{icon}  {nav_page}", key=f"nav_{nav_page}", use_container_width=True):
+            st.session_state.active_page = nav_page
+            st.rerun()
+
+    # Sidebar footer
+    st.markdown("""
+    <div style="
+        margin-top: 2rem;
+        padding: 0.9rem 1.2rem 0 1.2rem;
+        border-top: 1px solid #1E3148;
+    ">
+        <div style="font-size: 0.72rem; color: #3D5A7A; line-height: 1.6;">
+            ODIR-5K Dataset<br>
+            <span style="color: #2A4A6A;">Epoch 68 &middot; Macro-F1 56.91%</span>
+        </div>
+    </div>
+    """, unsafe_allow_html=True)
+
+# ---------------------------------------------------------------------------
+# Guard — model load error shown after sidebar renders
+# ---------------------------------------------------------------------------
 if model_load_error:
     st.error(model_load_error)
     st.stop()
+
+# Route to page
+page = st.session_state.active_page
 
 
 # ===========================================================================
