@@ -66,8 +66,19 @@ st.markdown("""
 @import url('https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&family=IBM+Plex+Mono:wght@500;600&display=swap');
 
 html, body, .stApp { background: #EEF2F7; font-family: 'Inter', sans-serif; color: #16232B; }
-#MainMenu, header[data-testid="stHeader"], footer { visibility: hidden; height: 0; }
+#MainMenu, footer { visibility: hidden; height: 0; }
+header[data-testid="stHeader"] { background: transparent; height: 3rem; }
 .block-container { padding-top: 1.4rem; padding-bottom: 3rem; max-width: none; }
+
+/* Keep the sidebar re-expand control visible and usable at all times */
+[data-testid="collapsedControl"] {
+    visibility: visible !important;
+    display: flex !important;
+    color: #0E6E6A !important;
+}
+[data-testid="collapsedControl"] svg {
+    fill: #0E6E6A !important;
+}
 
 /* Sidebar */
 section[data-testid="stSidebar"] {
