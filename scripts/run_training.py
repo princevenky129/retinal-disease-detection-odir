@@ -49,6 +49,7 @@ def main(config_path: str):
         contrast=cfg["augmentation"]["color_jitter"]["contrast"],
         saturation=cfg["augmentation"]["color_jitter"]["saturation"],
         hue=cfg["augmentation"]["color_jitter"]["hue"],
+        scale_range=tuple(cfg["augmentation"].get("scale_range", (0.9, 1.1))),
     )
     eval_transform = get_eval_transforms(image_size, mean, std)
 

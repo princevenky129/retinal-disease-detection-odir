@@ -35,12 +35,13 @@ data:
 augmentation:
   horizontal_flip_p: 0.5
   vertical_flip_p: 0.5
-  rotation_degrees: 15
+  rotation_degrees: 25          # widened from 15 -> more rotational diversity
+  scale_range: [0.85, 1.15]     # new: random zoom in/out, simulates camera distance variation
   color_jitter:
-    brightness: 0.2
-    contrast: 0.2
-    saturation: 0.1
-    hue: 0.02
+    brightness: 0.3             # widened from 0.2 -> more exposure variation
+    contrast: 0.3                # widened from 0.2
+    saturation: 0.15             # widened from 0.1
+    hue: 0.03                    # widened from 0.02
   normalize_mean: [0.485, 0.456, 0.406]   # ImageNet stats (backbone is ImageNet-pretrained)
   normalize_std: [0.229, 0.224, 0.225]
 
@@ -90,7 +91,7 @@ scheduler:
   eta_min: 1e-6
 
 training:
-  epochs: 100
+  epochs: 70
   warmup_epochs: 5          # freeze pretrained EfficientNet+Swin for this many epochs first
   batch_size: 16          # reduce if you hit OOM on Kaggle's T4 (try 8)
   num_workers: 4
